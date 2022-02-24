@@ -23,18 +23,6 @@ resource "aws_ecs_cluster" "httpbin" {
   }
 }
 
-resource "aws_ecs_cluster_capacity_providers" "httpbin" {
-  cluster_name = aws_ecs_cluster.httpbin.name
-
-  capacity_providers = ["FARGATE"]
-
-  default_capacity_provider_strategy {
-    base              = 1
-    weight            = 100
-    capacity_provider = "FARGATE"
-  }
-}
-
 resource "aws_ecs_task_definition" "httpbin" {
   family                   = "httpbin"
   network_mode             = "awsvpc"
@@ -81,4 +69,40 @@ resource "aws_ecs_service" "httpbin" {
   depends_on = [
     aws_alb_listener.httpbin_listener,
   ]
+
+  lifecycle {
+    ignore_changes = [desired_count]
+  }
+}
+
+resource "aws_appautoscaling_target" "httpbin" {
+  max_capacity       = var.app_count_max
+  min_capacity       = var.app_count
+  resource_id        = "service/${aws_ecs_cluster.httpbin.name}/${aws_ecs_service.httpbin.name}"
+  scalable_dimension = "ecs:service:DesiredCount"
+  service_namespace  = "ecs"
+
+
+  depends_on = [aws_ecs_service.httpbin]
+}
+
+resource "aws_appautoscaling_policy" "httpbin" {
+  name               = "httpbin-autoscaling-policy"
+  policy_type        = "TargetTrackingScaling"
+  resource_id        = aws_appautoscaling_target.httpbin.resource_id
+  scalable_dimension = aws_appautoscaling_target.httpbin.scalable_dimension
+  service_namespace  = aws_appautoscaling_target.httpbin.service_namespace
+
+  target_tracking_scaling_policy_configuration {
+    target_value = var.app_auto_scaling_max_cpu_util
+
+    scale_in_cooldown  = 300
+    scale_out_cooldown = 300
+
+    predefined_metric_specification {
+      predefined_metric_type = "ECSServiceAverageCPUUtilization"
+    }
+  }
+
+  depends_on = [aws_appautoscaling_target.httpbin]
 }

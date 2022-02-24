@@ -32,6 +32,11 @@ variable "app_count" {
   default     = 2
 }
 
+variable "app_count_max" {
+  description = "Maximum number of docker containers to run"
+  default     = 5
+}
+
 variable "fargate_cpu" {
   description = "Fargate instance CPU units to provision (1 vCPU = 1024 CPU units)"
   default     = 512
@@ -50,4 +55,9 @@ variable "mock_aws" {
 variable "mock_zones" {
   description = "Dummy zone names used for testing"
   default     = ["a", "b", "c"]
+}
+
+variable "app_auto_scaling_max_cpu_util" {
+  description = "CPU app util triggering scaling"
+  default = 80
 }
